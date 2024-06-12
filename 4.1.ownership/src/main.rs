@@ -28,7 +28,7 @@ fn main() {
     if b {
       s2 = s;
     }
-    println!("{}", s);
+    // println!("{}", s);
 
 }
 
