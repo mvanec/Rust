@@ -22,7 +22,7 @@ fn return_d_string() -> Rc<String> {
     Rc::clone(&s)
 }
 
-fn main() {
+fn borrowed() {
     let mut s: String = "Goodby".to_string();
     return_a_string(&mut s);
     println!("s is now {s}");
@@ -35,4 +35,31 @@ fn main() {
 
     s = return_d_string().to_string();
     println!("s is now {s}");
+}
+
+// Unsafe Fixing
+fn stringify_name_with_title(name: &Vec<String>) -> String {
+    let mut full = name.join(" ");
+    full.push_str(" Esq.");
+    full
+}
+
+fn main() {
+    borrowed();
+
+    let name = vec![String::from("Ferris")];
+    let first = &name[0];
+    let rslt = stringify_name_with_title(&name);
+    println!("First; {}, Whole = {rslt}", first);
+
+    let mut v: Vec<f32> = vec![1.2, 2.6, 6.5, 8.0];
+    round_in_place(&mut v);
+    println!("{:?}", v);
+}
+
+/// Rounds all the floats in a vector to the nearest integer, in-place
+fn round_in_place(v: &mut Vec<f32>) {
+    for n in v {
+        *n = n.round();
+    }
 }
