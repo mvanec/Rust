@@ -44,6 +44,13 @@ fn stringify_name_with_title(name: &Vec<String>) -> String {
     full
 }
 
+/// Rounds all the floats in a vector to the nearest integer, in-place
+fn round_in_place(v: &mut Vec<f32>) {
+    for n in v {
+        *n = n.round();
+    }
+}
+
 fn main() {
     borrowed();
 
@@ -55,11 +62,4 @@ fn main() {
     let mut v: Vec<f32> = vec![1.2, 2.6, 6.5, 8.0];
     round_in_place(&mut v);
     println!("{:?}", v);
-}
-
-/// Rounds all the floats in a vector to the nearest integer, in-place
-fn round_in_place(v: &mut Vec<f32>) {
-    for n in v {
-        *n = n.round();
-    }
 }
