@@ -62,4 +62,14 @@ fn main() {
     let mut v: Vec<f32> = vec![1.2, 2.6, 6.5, 8.0];
     round_in_place(&mut v);
     println!("{:?}", v);
+    m();
+}
+
+fn m() {
+    let mut point = [0, 1];
+    let mut x = point[0];
+    let y = &mut point[1];
+    x += 1;
+    *y += 1;
+    println!("{} {}", point[0], point[1]);
 }
