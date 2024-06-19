@@ -1,3 +1,10 @@
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
+fn foo(x: &i32) {
+    println!("{x}");
+}
 fn main() {
-    println!("Hello, world!");
+    let x = null;
+    foo(x);
 }
