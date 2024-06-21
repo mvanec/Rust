@@ -1,6 +1,30 @@
 use async_trait::async_trait;
-use sqlx::{Error, Pool, Sqlite, Postgres, MySql};
+use sqlx::{postgres::PgPoolOptions, Database, Error, MySql, Pool, Postgres, Sqlite};
 use std::error::Error as StdError;
+
+pub trait DatabaseTraits {
+    type DB: Database;
+    fn get_address(&self) -> String;
+    async fn connect(&self) -> Result<Pool<Self::DB>, Error>;
+}
+
+impl DatabaseTraits for Postgres {
+    type DB = Postgres;
+
+    fn get_address(&self) -> String {
+        //self.address.to_string()
+        "".to_string()
+    }
+
+    async fn connect(&self) -> Result<Pool<Self::DB>, Error> {
+        let conn: Pool<Self::DB> = PgPoolOptions::new()
+            .max_connections(5)
+            .connect(&self.get_address())
+            .await?
+            .into();
+        Ok(conn)
+    }
+}
 
 // Define an enum to hold connection parameters for different databases
 pub enum DbParam<'a> {
