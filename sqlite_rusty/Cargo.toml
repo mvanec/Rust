@@ -1,0 +1,9 @@
+[package]
+name = "sqlite_rusty"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sqlx = { version = "0.7.4", features = [ "runtime-async-std-native-tls", "sqlite" ] }
+async-std = { version = "1.12.0", features = [ "attributes" ] }
+futures = "0.3.30"
