@@ -6,6 +6,7 @@ pub trait DatabaseTraits {
     type DB: Database;
     fn get_address(&self) -> String;
     async fn connect(&self) -> Result<Pool<Self::DB>, Error>;
+
 }
 
 impl DatabaseTraits for Postgres {
@@ -24,6 +25,14 @@ impl DatabaseTraits for Postgres {
             .into();
         Ok(conn)
     }
+
+    // async fn read(&self, schema: String, table: String) -> Result<PgRow, Error> {
+    //     let conn = self.connect().await?;
+    //     let query_string = format!("SELECT * FROM {}.{}", schema, table);
+    //     let rows = sqlx::query(&query_string).fetch_one(&conn).await?;
+    //     Ok(rows)
+    // }
+
 }
 
 // Define an enum to hold connection parameters for different databases
