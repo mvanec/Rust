@@ -19,11 +19,14 @@ pub fn add_two(a: i32) -> i32 {
     a + 2
 }
 
+fn internal_adder(a: i32, b: i32) -> i32 {
+    a + b
+}
+
 // Test with a custom message
 pub fn greeting(name: &str) -> String {
     format!("Hello {}!", name)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -44,6 +47,13 @@ mod tests {
         assert_eq!(4, add_two(2));
     }
 
+    // Testing a private function
+    #[test]
+    fn internal() {
+        assert_eq!(4, internal_adder(2, 2));
+    }
+
+    // Using a test with a Result
     #[test]
     fn it_works() -> Result<(), String> {
         if 2 + 2 == 4 {
