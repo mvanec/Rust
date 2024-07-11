@@ -2,5 +2,7 @@
 name = "minigrep"
 version = "0.1.0"
 edition = "2021"
+description = "The minigrep program from `The Rust Language Book`"
+license = "MIT"
 
 [dependencies]

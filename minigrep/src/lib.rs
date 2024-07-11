@@ -1,3 +1,9 @@
+//!
+//! # Mini Grep
+//!
+//! `minigrep` is a streamlined implementation of finding
+//! needles in haystacks.
+//!
 use std::env;
 use std::error::Error;
 use std::fs;
@@ -33,6 +39,14 @@ pub fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a st
         .collect()
 }
 
+///
+/// Holds the configuration information for the application
+///
+/// * **program**: The name of the program being executed
+/// * **query**:   The string that the program should look for
+/// * **file_path**: The file that the program will look for `query` in
+/// * **ignore_case**: Whether or not the search is case-sensitive
+///
 pub struct Config {
     pub program: String,
     pub query: String,
@@ -41,6 +55,10 @@ pub struct Config {
 }
 
 impl Config {
+
+    ///
+    /// Build the Config object using the provided `args` iterator. Typically
+    /// this will come from command-line arguments.
     pub fn build(mut args: impl Iterator<Item = String>) -> Result<Config, &'static str> {
 
         let program = match args.next() {
