@@ -12,9 +12,9 @@ async fn main() -> Result<(), Error> {
         .await?; // Wait for the text conversion and propagate any errors
     println!("Response: {}", response);
 
-    // let my_future = MyFuture { state: 0 };
-    // let result = my_future.await;
-    // println!("Result: {}", result);
+    let my_future = MyFuture { state: 0 };
+    let result = my_future.await;
+    println!("Result: {}", result);
 
     match read_file("nonexistent.txt").await {
         Ok(contents) => println!("File contents: {}", contents),

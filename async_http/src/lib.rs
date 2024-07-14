@@ -1,7 +1,7 @@
 use std::future::Future;
+use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::io;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
@@ -18,10 +18,12 @@ pub struct MyFuture {
 
 impl Future for MyFuture {
     type Output = i32;
-    fn poll(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Self::Output> {
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if self.state == 0 {
             self.state += 1;
             println!("Zero State = {}", self.state);
+            cx.waker().wake_by_ref(); // Wake the task to poll again
             Poll::Pending
         } else {
             println!("State = {}", self.state);
