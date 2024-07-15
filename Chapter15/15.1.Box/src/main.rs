@@ -1,12 +1,8 @@
 #[allow(unused)]
 
-#[derive(Debug)]
-enum List<T> {
-    Cons(T, Box<List<T>>),
-    Nil,
-}
-
-use crate::List::{Cons, Nil};
+use box_heap::List;
+use box_heap::List::Cons;
+use box_heap::List::Nil;
 
 fn main() {
     listing_15_1();

@@ -13,3 +13,28 @@ version = "0.1.0"
 [[package]]
 name = "drop_trait"
 version = "0.1.0"
+
+[[package]]
+name = "macros"
+version = "0.1.0"
+
+[[package]]
+name = "rc_leaks"
+version = "0.1.0"
+dependencies = [
+ "macros",
+]
+
+[[package]]
+name = "rc_pointer"
+version = "0.1.0"
+dependencies = [
+ "macros",
+]
+
+[[package]]
+name = "refcell"
+version = "0.1.0"
+dependencies = [
+ "macros",
+]
