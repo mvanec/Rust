@@ -2,5 +2,6 @@
 resolver = "2"
 
 members = [
+    "16.1.Using_Threads",
     "macros",
 ]
