@@ -7,6 +7,13 @@ name = "macros"
 version = "0.1.0"
 
 [[package]]
+name = "messages"
+version = "0.1.0"
+dependencies = [
+ "macros",
+]
+
+[[package]]
 name = "using_threads"
 version = "0.1.0"
 dependencies = [
