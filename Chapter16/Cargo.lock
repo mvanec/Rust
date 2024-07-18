@@ -14,6 +14,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "sharing"
+version = "0.1.0"
+dependencies = [
+ "macros",
+]
+
+[[package]]
+name = "sync_send"
+version = "0.1.0"
+dependencies = [
+ "macros",
+]
+
+[[package]]
 name = "using_threads"
 version = "0.1.0"
 dependencies = [
