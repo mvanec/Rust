@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
 
-members = [ "17.1.CharacteristicsOfOOP", "17.2.TraitObjects",
+members = [ "17.1.CharacteristicsOfOOP", "17.2.TraitObjects", "17.3.OOP_Patterns",
    "macros",
 ]
