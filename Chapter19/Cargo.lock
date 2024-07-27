@@ -3,6 +3,13 @@
 version = 3
 
 [[package]]
+name = "advanced_traits"
+version = "0.1.0"
+dependencies = [
+ "macros",
+]
+
+[[package]]
 name = "macros"
 version = "0.1.0"
 
