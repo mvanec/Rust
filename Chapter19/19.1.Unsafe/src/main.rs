@@ -4,6 +4,10 @@ fn main() {
     listing_19_3();
     listing_19_4(true);
     listing_19_4(false);
+    listing_19_8();
+    call_from_c();
+    listing_19_10();
+    q2();
 }
 
 fn listing_19_3() {
@@ -50,4 +54,49 @@ fn split_at_mut(values: &mut [i32], mid: usize) -> (&mut [i32], &mut [i32]) {
             slice::from_raw_parts_mut(ptr.add(mid), len - mid),
         )
     }
+}
+
+extern "C" {
+    fn abs(input: i32) -> i32;
+}
+
+fn listing_19_8() {
+    println!("\n=========Running {}", function!());
+    unsafe {
+        println!("Absolute value of -3 according to C: {}", abs(-3));
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn call_from_c() {
+    println!("\n=========Running {}", function!());
+    println!("Just called a Rust function from C!");
+}
+
+static mut COUNTER: u32 = 0;
+
+fn add_to_count(inc: u32) {
+    unsafe {
+        COUNTER += inc;
+    }
+}
+
+fn listing_19_10() {
+    println!("\n=========Running {}", function!());
+    add_to_count(3);
+
+    unsafe {
+        println!("COUNTER: {}", COUNTER);
+    }
+}
+
+fn q2() {
+    println!("\n=========Running {}", function!());
+    let mut v = Vec::with_capacity(4);
+    for i in 0 .. 3 {
+        v.push(i);
+    }
+    let n = &v[0] as *const i32;
+    v.push(4);
+    println!("{}", unsafe { *n });
 }
