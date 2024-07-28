@@ -10,6 +10,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "advanced_macros"
+version = "0.1.0"
+dependencies = [
+ "macros",
+]
+
+[[package]]
 name = "advanced_traits"
 version = "0.1.0"
 dependencies = [
