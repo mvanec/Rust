@@ -1,4 +1,4 @@
 [workspace]
 resolver = "2"
 
-members = ["19.1.Unsafe", "19.2.AdvancedTraits"]
+members = ["19.1.Unsafe", "19.2.AdvancedTraits", "19.3.AdvancedTypes"]
