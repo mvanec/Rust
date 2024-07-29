@@ -25,7 +25,7 @@ fn listing_19_30() {
     Pancakes::hello_macro();
 }
 
-#[route(GET "/")]
+//#[route(GET "/")]
 fn index() {
     println!("\n=========Running {}", function!());
     println!("Index");
