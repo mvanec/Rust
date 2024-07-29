@@ -1,7 +1,9 @@
 [package]
-name = "advanced_macros"
+name = "adv_macros"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 macros = { path = "../../macros" }
+advanced_macros = { path = "../advanced_macros" }
+advanced_macros_derived = { path = "../advanced_macros/advanced_macros_derived" }
