@@ -31,17 +31,17 @@ fn index() {
     println!("Index");
 }
 
-macro_rules! manylet {
-    ( $( $i:ident ),* = $e:expr ) => {
-        $(
-            let mut $i = $e;
-        )*
-    }
-}
-fn q1() {
-    println!("\n=========Running {}", function!());
-    let mut s = String::from("A");
-    manylet!(x, y = s);
-    x.push_str("B");
-    println!("{x}{y}");
-}
+// macro_rules! manylet {
+//     ( $( $i:ident ),* = $e:expr ) => {
+//         $(
+//             let mut $i = $e;
+//         )*
+//     }
+// }
+// fn q1() {
+//     println!("\n=========Running {}", function!());
+//     let mut s = String::from("A");
+//     manylet!(x, y = s);
+//     x.push_str("B");
+//     println!("{x}{y}");
+// }
