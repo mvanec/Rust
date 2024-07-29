@@ -1,0 +1,25 @@
+body {
+    background-color: black;
+}
+
+div {
+    margin: top 35px;
+    text-align: center;
+    color: white;
+    font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+p {
+    font-size: 15em;
+}
+
+button {
+    width: 50%;
+    height: 500px;
+    font-size: 18em;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: white;
+    text-align: center;
+    background-color: lightgray;
+    border-width: 8px;
+}
