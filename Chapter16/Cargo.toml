@@ -1,7 +1,0 @@
-[workspace]
-resolver = "2"
-
-members = [
-    "16.1.Using_Threads", "16.2.Messages", "16.3.SharingState", "16.4.SyncSend",
-    "macros",
-]

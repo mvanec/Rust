@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+
+members = [
+    "15.1.Box",
+    "15.2.Deref_Trait",
+    "15.3.Drop_Trait",
+    "15.4.Rc_Smart_Pointer",
+    "15.5.RefCell",
+    "15.6.RC_Leaks",
+]
