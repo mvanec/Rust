@@ -1,6 +1,0 @@
-[workspace]
-resolver = "2"
-
-members = ["18.1.PatternPlaces"
-    
-, "18.3.Patterns"]
