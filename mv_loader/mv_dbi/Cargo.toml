@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sqlx = { version = "^0.8.0", features = ["macros", "any", "sqlite", "postgres", "mysql"] }
+sqlx = { version = "^0.8.0", features = ["macros", "any", "chrono", "sqlite", "postgres", "mysql"] }
 chrono = "^0.4.38"
 
 [dev-dependencies]

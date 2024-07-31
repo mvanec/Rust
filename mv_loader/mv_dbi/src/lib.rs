@@ -1,4 +1,7 @@
-use sqlx::{Any, Connection, Error, Executor, Row};
+use chrono::NaiveDate;
+use chrono::NaiveDateTime;
+use sqlx::{AnyConnection, Connection, Error};
+// use sqlx::types::chrono::{NaiveDate, NaiveDateTime};
 
 #[derive(Debug)]
 pub struct DbConfig {
@@ -11,21 +14,18 @@ impl DbConfig {
     }
 }
 
-pub struct Database<C> {
-    conn: C,
+pub struct Database {
+    conn: AnyConnection,
 }
 
-impl<C> Database<C>
-where
-    C: Executor<'static, Database = Self>,
-    C: Any,
-{
+impl Database {
     pub async fn new(config: DbConfig) -> Result<Self, Error> {
-        let conn = sqlx::Any::connect(&config.url).await?;
+        sqlx::any::install_default_drivers();
+        let conn = sqlx::AnyConnection::connect(&config.url).await?;
         Ok(Self { conn })
     }
 
-    pub async fn create_table(&self) -> Result<(), Error> {
+    pub async fn create_table(&mut self) -> Result<(), Error> {
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS my_table (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,48 +38,41 @@ where
         Ok(())
     }
 
-    pub async fn insert(&self, sql: &str, data: &[(&dyn ToSql, &dyn ToSql)]) -> Result<u64, Error> {
+    pub async fn insert(&mut self, sql: &str, data: &[DataVariant]) -> Result<u64, Error> {
         let mut query = sqlx::query(sql);
-        for (param, _) in data {
-            query = query.bind(param);
+        for param in data {
+            match param {
+                DataVariant::Int(value) => query = query.bind(value),
+                DataVariant::String(value) => query = query.bind(value),
+                DataVariant::Float(value) => query = query.bind(value),
+                DataVariant::Date(value) => {
+                    let date_str = value.to_string(); // Convert NaiveDate to String
+                    query = query.bind(date_str);
+                }
+                DataVariant::DateTime(value) => {
+                    let datetime_str = value.to_string(); // Convert NaiveDateTime to String
+                    query = query.bind(datetime_str);
+                }
+            }
         }
-        query.execute(&mut self.conn).await?.rows_affected()
+        eprintln!("Database is {}", self.conn.backend_name());
+        let result = query.execute(&mut self.conn).await?;
+        Ok(result.rows_affected())
     }
 }
 
-trait ToSql {
-    fn to_sql(&self) -> Result<String, Error>;
-}
-
-impl ToSql for str {
-    fn to_sql(&self) -> Result<String, Error> {
-        Ok(format!("'{self}'"))
-    }
-}
-
-impl ToSql for &str {
-    fn to_sql(&self) -> Result<String, Error> {
-        Ok(format!("'{self}'"))
-    }
-}
-
-impl<T> ToSql for Option<T>
-where
-    T: ToSql,
-{
-    fn to_sql(&self) -> Result<String, Error> {
-        if let Some(val) = self {
-            val.to_sql()
-        } else {
-            Ok("NULL".to_string())
-        }
-    }
+pub enum DataVariant {
+    Int(i32),
+    String(String),
+    Float(f32),
+    Date(NaiveDate),
+    DateTime(NaiveDateTime),
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::test;
+    //use tokio::test;
 
     #[tokio::test]
     async fn test_database() -> Result<(), Error> {
@@ -88,9 +81,11 @@ mod tests {
 
         db.create_table().await?;
 
-        let data = ("Some data", chrono::Utc::now().date());
+
+        let data = [DataVariant::String("Some data".to_string()),
+                                      DataVariant::Date(chrono::Utc::now().date_naive())];
         let sql = "INSERT INTO my_table (data, created_at) VALUES (?, ?)";
-        let rows_affected = db.insert(sql, &[&data.0, &data.1]).await?;
+        let rows_affected = db.insert(sql, &data).await?;
 
         assert_eq!(rows_affected, 1);
 
