@@ -68,7 +68,7 @@ async fn main() -> Result<(), sqlx::Error> {
         let end_time = chrono::NaiveDateTime::parse_from_str(&record[3], "%Y-%m-%d %H:%M:%S%.f")
             .expect(&format!("Failed to parse end time for record: {:?}", record));
 
-        models::timing::Timing::new(project_id, start_time, end_time)
+        models::task_times::TaskTimes::new(project_id, start_time, end_time)
     })
     .await
     .unwrap_or_else(handle_error);

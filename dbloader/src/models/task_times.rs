@@ -6,14 +6,14 @@ use async_trait::async_trait;
 use crate::traits::model_trait::ModelTrait;
 
 #[derive(Debug, sqlx::FromRow)]
-pub struct Timing {
+pub struct TaskTimes {
     pub timing_id: i32,
     pub task_id: Uuid,
     pub start_timestamp: NaiveDateTime,
     pub end_timestamp: NaiveDateTime,
 }
 
-impl Timing {
+impl TaskTimes {
     pub fn new(task_id: Uuid, start_timestamp: NaiveDateTime, end_timestamp: NaiveDateTime) -> Self {
         Self {
             timing_id: 0,
@@ -25,7 +25,7 @@ impl Timing {
 }
 
 #[async_trait(?Send)]
-impl ModelTrait for Timing {
+impl ModelTrait for TaskTimes {
     async fn create(&self, pool: &PgPool) -> Result<(), sqlx::Error> {
         sqlx::query(
             "INSERT INTO TaskTimes (TaskId, StartTimestamp, EndTimestamp)
