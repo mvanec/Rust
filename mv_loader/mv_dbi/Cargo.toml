@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sqlx = { version = "^0.8.0", features = ["macros", "any", "chrono", "sqlite", "postgres", "mysql"] }
-chrono = "^0.4.38"
+sqlx = { version = "^0.8.0", features = ["macros", "any", "chrono", "uuid", "sqlite", "postgres", "mysql"] }
+chrono = { version = "^0.4.38", features = ["serde"] }
+serde = { version = "1.0.204", features = ["derive"] }
+uuid = { version = "1.10.0", features = ["v4", "serde"] }
 
 [dev-dependencies]
 tokio = { version = "^1.39.2", features = ["full"] }
