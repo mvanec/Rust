@@ -1,8 +1,16 @@
+mod database;
+mod model;
+
 use chrono::NaiveDate;
 use chrono::NaiveDateTime;
+use database::query;
 use sqlx::Row;
-use sqlx::{AnyConnection, Connection, Error};
+use sqlx::SqliteConnection;
+use sqlx::{Connection, Error};
 // use sqlx::types::chrono::{NaiveDate, NaiveDateTime};
+
+use database::query::ToQuery;
+use model::project;
 
 #[derive(Debug)]
 pub struct DbConfig {
@@ -11,18 +19,19 @@ pub struct DbConfig {
 
 impl DbConfig {
     pub fn new(url: &str) -> Self {
-        Self { url: url.to_owned() }
+        Self {
+            url: url.to_owned(),
+        }
     }
 }
 
-pub struct Database {
-    conn: AnyConnection,
+pub struct DbiDatabase {
+    conn: SqliteConnection,
 }
 
-impl Database {
+impl DbiDatabase {
     pub async fn new(config: DbConfig) -> Result<Self, Error> {
-        sqlx::any::install_default_drivers();
-        let conn = sqlx::AnyConnection::connect(&config.url).await?;
+        let conn = SqliteConnection::connect(&config.url).await?;
         Ok(Self { conn })
     }
 
@@ -39,6 +48,12 @@ impl Database {
         Ok(())
     }
 
+    pub async fn insert_query(&mut self, item: &impl ToQuery) -> Result<u64, Error> {
+        let query = item.to_query();
+        let result = query.execute(&mut self.conn).await?;
+        Ok(result.rows_affected())
+    }
+
     pub async fn insert(&mut self, sql: &str, data: &[DataVariant]) -> Result<u64, Error> {
         let mut query = sqlx::query(sql);
         for param in data {
@@ -46,14 +61,8 @@ impl Database {
                 DataVariant::Int(value) => query = query.bind(value),
                 DataVariant::String(value) => query = query.bind(value),
                 DataVariant::Float(value) => query = query.bind(value),
-                DataVariant::Date(value) => {
-                    let date_str = value.to_string(); // Convert NaiveDate to String
-                    query = query.bind(date_str);
-                }
-                DataVariant::DateTime(value) => {
-                    let datetime_str = value.to_string(); // Convert NaiveDateTime to String
-                    query = query.bind(datetime_str);
-                }
+                DataVariant::Date(value) => query = query.bind(value),
+                DataVariant::DateTime(value) => query = query.bind(value),
             }
         }
 
@@ -68,14 +77,8 @@ impl Database {
                 DataVariant::Int(value) => query = query.bind(value),
                 DataVariant::String(value) => query = query.bind(value),
                 DataVariant::Float(value) => query = query.bind(value),
-                DataVariant::Date(value) => {
-                    let date_str = value.to_string(); // Convert NaiveDate to String
-                    query = query.bind(date_str);
-                }
-                DataVariant::DateTime(value) => {
-                    let datetime_str = value.to_string(); // Convert NaiveDateTime to String
-                    query = query.bind(datetime_str);
-                }
+                DataVariant::Date(value) => query = query.bind(value),
+                DataVariant::DateTime(value) => query = query.bind(value),
             }
         }
         let result = query.fetch_one(&mut self.conn).await?;
@@ -97,17 +100,21 @@ pub enum DataVariant {
 mod tests {
     use super::*;
     //use tokio::test;
+    use sqlx::query::Query;
+    use sqlx::sqlite::Sqlite;
+    use sqlx::sqlite::SqliteArguments;
 
     #[tokio::test]
     async fn test_database() -> Result<(), Error> {
         let config = DbConfig::new("sqlite::memory:");
-        let mut db = Database::new(config).await?;
+        let mut db = DbiDatabase::new(config).await?;
 
         db.create_table().await?;
 
-
-        let data = [DataVariant::String("Some data".to_string()),
-                                      DataVariant::Date(chrono::Utc::now().date_naive())];
+        let data = [
+            DataVariant::String("Some data".to_string()),
+            DataVariant::Date(chrono::Utc::now().date_naive()),
+        ];
         let sql = "INSERT INTO my_table (data, created_at) VALUES (?, ?)";
         let rows_affected = db.insert(sql, &data).await?;
 
@@ -119,7 +126,7 @@ mod tests {
     #[tokio::test]
     async fn test_database_select() -> Result<(), Error> {
         let config = DbConfig::new("sqlite::memory:");
-        let mut db = Database::new(config).await?;
+        let mut db = DbiDatabase::new(config).await?;
 
         db.create_table().await?;
         setup(&mut db).await?;
@@ -128,16 +135,54 @@ mod tests {
         let sql = "SELECT * FROM my_table WHERE data = ?";
         let rows_affected = db.fetch(sql, &data).await?;
 
+        assert_eq!(rows_affected, 3);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_database_insert_query() -> Result<(), Error> {
+        let config = DbConfig::new("sqlite::memory:");
+        let mut db = DbiDatabase::new(config).await?;
+
+        db.create_table().await?;
+
+        let my_table = MyTable {
+            id: 0,
+            data: "Some text".to_string(),
+            created_at: chrono::Utc::now().date_naive()
+        };
+
+        let rows_affected = db.insert_query(&my_table).await?;
         assert_eq!(rows_affected, 1);
 
         Ok(())
     }
 
-    async fn setup(db: &mut Database) -> Result<u64, Error> {
-        let data = [DataVariant::String("Some data".to_string()),
-                                      DataVariant::Date(chrono::Utc::now().date_naive())];
+    async fn setup(db: &mut DbiDatabase) -> Result<u64, Error> {
+        let data = [
+            DataVariant::String("Some data".to_string()),
+            DataVariant::Date(chrono::Utc::now().date_naive()),
+        ];
         let sql = "INSERT INTO my_table (data, created_at) VALUES (?, ?)";
         let rows_affected = db.insert(sql, &data).await?;
         Ok(rows_affected)
+    }
+
+    struct MyTable {
+        id: i64,
+        data: String,
+        created_at: NaiveDate,
+    }
+
+    impl ToQuery for MyTable {
+        fn to_query(&self) -> Query<Sqlite, SqliteArguments> {
+            let query_str = "INSERT INTO my_table (data, created_at) VALUES (?, ?)";
+
+            let query = sqlx::query(query_str)
+                .bind(self.data.clone())
+                .bind(self.created_at);
+            query
+        }
     }
 }
