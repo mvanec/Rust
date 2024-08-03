@@ -2,6 +2,8 @@
 #![allow(unused_imports)]
 mod factory;
 
+use std::str::FromStr;
+
 use seq_macro::seq;
 use uuid;
 // use chrono::NaiveDate;
@@ -34,4 +36,11 @@ async fn main() {
         let name = rec.get::<Option<String>, _>("projectname");
         println!("{} | {}", &prid.unwrap(), &name.unwrap());
     }
+    try_deserialize();
+}
+
+fn try_deserialize() {
+    let start_date = "2023-08-01";
+    let n_date: NaiveDate = NaiveDate::from_str(&start_date).unwrap();
+    println!("Parsed date = {}", n_date);
 }
