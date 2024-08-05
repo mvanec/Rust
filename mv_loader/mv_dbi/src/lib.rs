@@ -113,11 +113,7 @@ mod tests {
     }
 
     async fn setup(db: &mut DbiDatabase) -> Result<MyTable, Error> {
-        let my_table = MyTable {
-            id: 0,
-            data: "Some text".to_string(),
-            created_at: chrono::Utc::now().date_naive(),
-        };
+        let my_table = MyTable::default();
 
         match db.insert_query(&my_table).await {
             Ok(value) => {
@@ -130,7 +126,7 @@ mod tests {
         }
     }
 
-    #[derive(Debug, PartialEq, Deserialize, Serialize)]
+    #[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize)]
     struct MyTable {
         id: i64,
         data: String,

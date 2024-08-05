@@ -6,11 +6,13 @@ use sqlx::query::Query;
 use sqlx::sqlite::SqliteArguments;
 use sqlx::sqlite::Sqlite;
 use sqlx::Error;
+use sqlx::Row;
+use sqlx::Column;
 use sqlx::sqlite::SqliteRow;
 
 use crate::database::query::ToQuery;
 
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize)]
 pub struct Project {
     pub project_id: Uuid,
     pub project_name: String,
@@ -65,6 +67,21 @@ impl ToQuery for Project {
     }
 
     fn from_row(&mut self, row: &SqliteRow) -> Result<(), Error> {
-        todo!()
-    }
+        let cols = row.columns();
+
+        if cols.len() < 7 {
+            let message = format!("Not enough columns in result: {:?}", cols);
+            return Err(Error::Protocol(message.into()));
+        }
+
+        self.project_id = row.try_get::<Uuid, _>(cols[0].name())?;
+        self.project_name = row.try_get::<String, _>(cols[1].name())?;
+        self.project_start_date = row.try_get::<NaiveDate, _>(cols[2].name())?;
+        self.project_end_date = row.try_get::<NaiveDate, _>(cols[3].name())?;
+        self.pay_rate = row.try_get::<f64, _>(cols[4].name())?;
+        self.project_duration = row.try_get::<i32, _>(cols[5].name())?;
+        self.project_total_pay = row.try_get::<f64, _>(cols[6].name())?;
+
+        Ok(())
+}
 }
