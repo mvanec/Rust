@@ -1,9 +1,11 @@
+#![allow(unused)]
+
 mod database;
 mod model;
 
-#[cfg(test)]
 use database::query::DbObject;
 
+use model::project;
 use model::project::Project;
 use sqlx::Error;
 use sqlx::Pool;
@@ -11,12 +13,10 @@ use sqlx::Row;
 use sqlx::Sqlite;
 // use sqlx::types::chrono::{NaiveDate, NaiveDateTime};
 
-use database::query::ToQuery;
-
-pub enum DataObject<'a> {
-    Project(&'a Project),
+pub enum DataObject {
+    Project(Project),
     #[cfg(test)]
-    MyTable(&'a tests::MyTable)
+    MyTable(tests::MyTable),
 }
 
 #[derive(Debug)]
@@ -55,26 +55,23 @@ impl DbiDatabase {
         Ok(())
     }
 
-    pub async fn insert_query(&mut self, item: &impl ToQuery) -> Result<u64, Error> {
-        let query = item.to_execute_query();
-        let result = query.execute(&self.pool).await?;
-        Ok(result.rows_affected())
-    }
-
-    pub async fn do_insert(&mut self, data_object: &DataObject<'_>) -> Result<u64, Error> {
+    pub async fn do_insert(&mut self, data_object: &DataObject) -> Result<u64, Error> {
         match data_object {
             DataObject::Project(_) => todo!(),
             #[cfg(test)]
-            DataObject::MyTable(value) => <tests::MyTable>::insert_one(&self.pool, &value).await,
+            DataObject::MyTable(value) => {
+                <tests::MyTable>::insert_one(&mut self.pool, &value).await
+            }
         }
     }
 
-    pub async fn fetch(&mut self, item: &mut impl ToQuery) -> Result<u64, Error> {
-        let query = item.to_fetch_query();
-        let result = query.fetch_one(&self.pool).await?;
-        let col_count: u64 = result.len() as u64;
-        let _ = item.from_row(&result);
-        Ok(col_count)
+    pub async fn fetch_one(&mut self, data_object: &mut DataObject) -> Result<(), Error> {
+        match data_object {
+            DataObject::Project(project) => project.retrieve_one(&self.pool).await,
+            #[cfg(test)]
+            DataObject::MyTable(table) => table.retrieve_one(&self.pool).await,
+        }
+        //Ok(0)
     }
 }
 
@@ -104,15 +101,15 @@ mod tests {
             Err(error) => return Err(error),
         };
 
-        let mut mytable = MyTable {
-            id: 0,
-            data: String::new(),
-            created_at: NaiveDate::MIN,
-        };
+        let mut mytable = MyTable::default();
+        mytable.id = inserted.id;
+        let mut dao = DataObject::MyTable(mytable.clone());
+        let result = db.fetch_one(&mut dao).await?;
+        if let DataObject::MyTable(mytable) = dao {
 
-        let col_count = db.fetch(&mut mytable).await?;
+        }
 
-        assert_eq!(col_count, 3);
+        assert_eq!(result, ());
         inserted.id = mytable.id;
         assert_eq!(&mytable, &inserted);
         Ok(())
@@ -140,27 +137,27 @@ mod tests {
             data: "Testing Insert".to_string(),
             created_at: NaiveDate::MAX,
         };
-        let dao = DataObject::MyTable(&mt);
+        let dao = DataObject::MyTable(mt);
         let result = db.do_insert(&dao).await?;
         assert_eq!(result, 1);
-        
-        let inserted = MyTable::insert_one(&db.pool, &mt).await?;
-        assert_eq!(inserted, 1);
         Ok(())
     }
 
     async fn setup(db: &mut DbiDatabase) -> Result<MyTable, Error> {
-        let my_table = MyTable::default();
+        let mut my_table = MyTable::default();
+        my_table.data = "A setup object".to_string();
+        let sql = "INSERT INTO my_table (data, created_at) VALUES (?, ?)";
 
-        match db.insert_query(&my_table).await {
-            Ok(value) => {
-                if value <= 0 {
-                    return Err(Error::Protocol("Insert returned 0 rows affected".into()));
-                }
-                Ok(my_table)
-            }
-            Err(error) => Err(error),
+        let result = sqlx::query(sql)
+            .bind(my_table.data.clone())
+            .bind(my_table.created_at)
+            .execute(&db.pool)
+            .await?;
+
+        if result.rows_affected() > 0 {
+            return Ok(my_table);
         }
+        Err(Error::Protocol("Insert returned 0 rows affected".into()))
     }
 
     #[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize)]
@@ -168,40 +165,6 @@ mod tests {
         id: i64,
         data: String,
         created_at: NaiveDate,
-    }
-
-    impl ToQuery for MyTable {
-        fn to_execute_query(&self) -> Query<Sqlite, SqliteArguments> {
-            let query_str = "INSERT INTO my_table (data, created_at) VALUES (?, ?)";
-
-            let query = sqlx::query(query_str)
-                .bind(self.data.clone())
-                .bind(self.created_at);
-            query
-        }
-
-        fn to_fetch_query(&self) -> Query<Sqlite, SqliteArguments> {
-            let query_str = "SELECT
-                id,
-                data,
-                created_at
-            FROM my_table
-            ORDER BY created_at ASC";
-            // WHERE project_id = ?";
-
-            let query = sqlx::query(query_str);
-            query
-        }
-
-        fn from_row(&mut self, row: &SqliteRow) -> Result<(), Error> {
-            let cols = row.columns();
-
-            self.id = row.try_get::<i64, _>(cols[0].name())?;
-            self.data = row.try_get::<String, _>(cols[1].name())?;
-            self.created_at = row.try_get::<NaiveDate, _>(cols[2].name())?;
-
-            Ok(())
-        }
     }
 
     impl DbObject<Sqlite, MyTable> for MyTable {
@@ -216,12 +179,16 @@ mod tests {
             Ok(result.rows_affected())
         }
 
-        async fn retrieve_one(&self, pool: &Pool<Sqlite>) -> Result<MyTable, Error> {
+        async fn retrieve_all(pool: &Pool<Sqlite>) -> Result<Vec<MyTable>, Error> {
             todo!()
         }
 
-        async fn retrieve_all(&self, pool: &Pool<Sqlite>) -> Result<Vec<MyTable>, Error> {
-            todo!()
+        async fn retrieve_one(&mut self, pool: &Pool<Sqlite>) -> Result<(), Error> {
+            let sql = "SELECT data, created_at FROM my_table WHERE id = ?";
+            let result = sqlx::query(sql).bind(self.id).fetch_one(pool).await?;
+            self.data = result.try_get("data")?;
+            self.created_at = result.try_get("created_at")?;
+            Ok(())
         }
     }
 }
