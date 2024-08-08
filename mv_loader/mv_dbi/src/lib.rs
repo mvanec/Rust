@@ -55,13 +55,11 @@ impl DbiDatabase {
         Ok(())
     }
 
-    pub async fn do_insert(&mut self, data_object: &DataObject) -> Result<u64, Error> {
+    pub async fn do_insert(&mut self, data_object: &mut DataObject) -> Result<u64, Error> {
         match data_object {
             DataObject::Project(_) => todo!(),
             #[cfg(test)]
-            DataObject::MyTable(value) => {
-                <tests::MyTable>::insert_one(&mut self.pool, &value).await
-            }
+            DataObject::MyTable(value) => <tests::MyTable>::insert_one(&mut self.pool, value).await,
         }
     }
 
@@ -87,6 +85,7 @@ mod tests {
     use sqlx::sqlite::SqliteRow;
     use sqlx::Column;
     use sqlx::Error;
+    use sqlx::FromRow;
     use sqlx::Pool;
     use sqlx::Row;
 
@@ -101,17 +100,16 @@ mod tests {
             Err(error) => return Err(error),
         };
 
+        inserted.id = 1;
         let mut mytable = MyTable::default();
         mytable.id = inserted.id;
         let mut dao = DataObject::MyTable(mytable.clone());
         let result = db.fetch_one(&mut dao).await?;
         if let DataObject::MyTable(mytable) = dao {
-
+            assert_eq!(&mytable, &inserted);
         }
 
         assert_eq!(result, ());
-        inserted.id = mytable.id;
-        assert_eq!(&mytable, &inserted);
         Ok(())
     }
 
@@ -132,14 +130,18 @@ mod tests {
         let config = DbConfig::new("sqlite::memory:");
         let mut db = DbiDatabase::new(config).await?;
         db.create_table().await?;
-        let mt = MyTable {
+        let mut mt = MyTable {
             id: 0,
             data: "Testing Insert".to_string(),
             created_at: NaiveDate::MAX,
         };
-        let dao = DataObject::MyTable(mt);
-        let result = db.do_insert(&dao).await?;
+        let mut dao = DataObject::MyTable(mt.clone());
+        let result = db.do_insert(&mut dao).await?;
         assert_eq!(result, 1);
+        mt.id = 1;
+        if let DataObject::MyTable(mytable) = dao {
+            assert_eq!(&mytable, &mt);
+        }
         Ok(())
     }
 
@@ -155,20 +157,21 @@ mod tests {
             .await?;
 
         if result.rows_affected() > 0 {
+            let rows = result.rows_affected();
             return Ok(my_table);
         }
         Err(Error::Protocol("Insert returned 0 rows affected".into()))
     }
 
-    #[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize)]
+    #[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize, FromRow)]
     pub struct MyTable {
-        id: i64,
+        id: u64,
         data: String,
         created_at: NaiveDate,
     }
 
     impl DbObject<Sqlite, MyTable> for MyTable {
-        async fn insert_one(pool: &Pool<Sqlite>, dbo: &MyTable) -> Result<u64, Error> {
+        async fn insert_one(pool: &Pool<Sqlite>, dbo: &mut MyTable) -> Result<u64, Error> {
             let query_str = "INSERT INTO my_table (data, created_at) VALUES (?, ?)";
 
             let result = sqlx::query(query_str)
@@ -176,7 +179,23 @@ mod tests {
                 .bind(dbo.created_at)
                 .execute(pool)
                 .await?;
-            Ok(result.rows_affected())
+            let insert_count = result.rows_affected();
+
+            if insert_count == 1 {
+                let row: SqliteRow = sqlx::query(
+                    "SELECT id, data, created_at  FROM my_table WHERE data = ? AND created_at = ?",
+                )
+                .bind(dbo.data.clone())
+                .bind(dbo.created_at)
+                .fetch_one(pool)
+                .await?;
+
+                let tbl: MyTable = MyTable::from_row(&row)?;
+                dbo.id = tbl.id;
+                return Ok(tbl.id as u64);
+            }
+
+            Err(Error::Protocol("Insert returned 0 rows affected".into()))
         }
 
         async fn retrieve_all(pool: &Pool<Sqlite>) -> Result<Vec<MyTable>, Error> {
@@ -184,8 +203,19 @@ mod tests {
         }
 
         async fn retrieve_one(&mut self, pool: &Pool<Sqlite>) -> Result<(), Error> {
-            let sql = "SELECT data, created_at FROM my_table WHERE id = ?";
-            let result = sqlx::query(sql).bind(self.id).fetch_one(pool).await?;
+            let sql = "SELECT id, data, created_at FROM my_table WHERE id = ?";
+
+            let row: SqliteRow = sqlx::query("SELECT * FROM my_table")
+                .fetch_one(pool)
+                .await?;
+
+            let tbl: MyTable = MyTable::from_row(&row)?;
+            eprintln!("Row in table: {:?}", tbl);
+
+            let result: SqliteRow = sqlx::query(sql)
+                .bind(self.id as i64)
+                .fetch_one(pool)
+                .await?;
             self.data = result.try_get("data")?;
             self.created_at = result.try_get("created_at")?;
             Ok(())

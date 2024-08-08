@@ -25,9 +25,8 @@ pub struct Project {
     pub project_total_pay: f64,
 }
 
-impl DbObject<Sqlite, Project> for Project
-{
-    async fn insert_one(pool: &sqlx::Pool<Sqlite>, dbo: &Project) -> Result<u64, Error> {
+impl DbObject<Sqlite, Project> for Project {
+    async fn insert_one(pool: &sqlx::Pool<Sqlite>, dbo: &mut Project) -> Result<u64, Error> {
         todo!()
     }
 
