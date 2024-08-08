@@ -39,7 +39,7 @@ pub struct DbiDatabase {
 impl DbiDatabase {
     pub async fn new(config: DbConfig) -> Result<Self, Error> {
         let pool = Pool::connect(&config.url).await?;
-        Ok(Self { pool: pool })
+        Ok(Self { pool })
     }
 
     pub async fn create_table(&mut self) -> Result<(), Error> {
