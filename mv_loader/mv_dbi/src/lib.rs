@@ -173,29 +173,22 @@ mod tests {
     impl DbObject<Sqlite, MyTable> for MyTable {
         async fn insert_one(pool: &Pool<Sqlite>, dbo: &mut MyTable) -> Result<u64, Error> {
             let query_str = "INSERT INTO my_table (data, created_at) VALUES (?, ?)";
+            let mut tx = pool.begin().await?;
 
-            let result = sqlx::query(query_str)
+            sqlx::query(query_str)
                 .bind(dbo.data.clone())
                 .bind(dbo.created_at)
-                .execute(pool)
-                .await?;
-            let insert_count = result.rows_affected();
-
-            if insert_count == 1 {
-                let row: SqliteRow = sqlx::query(
-                    "SELECT id, data, created_at  FROM my_table WHERE data = ? AND created_at = ?",
-                )
-                .bind(dbo.data.clone())
-                .bind(dbo.created_at)
-                .fetch_one(pool)
+                .execute(&mut *tx)
                 .await?;
 
-                let tbl: MyTable = MyTable::from_row(&row)?;
-                dbo.id = tbl.id;
-                return Ok(tbl.id as u64);
-            }
+            let row: (i64,) = sqlx::query_as("SELECT last_insert_rowid()")
+                .fetch_one(&mut *tx)
+                .await?;
+            dbo.id = row.0 as u64;
 
-            Err(Error::Protocol("Insert returned 0 rows affected".into()))
+            tx.commit().await?;
+
+            Ok(dbo.id)
         }
 
         async fn retrieve_all(pool: &Pool<Sqlite>) -> Result<Vec<MyTable>, Error> {
