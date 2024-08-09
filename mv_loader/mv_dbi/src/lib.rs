@@ -13,6 +13,12 @@ use sqlx::Row;
 use sqlx::Sqlite;
 // use sqlx::types::chrono::{NaiveDate, NaiveDateTime};
 
+pub enum DataCollection {
+    Projects(Vec<Project>),
+    #[cfg(test)]
+    MyTables(Vec<tests::MyTable>),
+}
+
 pub enum DataObject {
     Project(Project),
     #[cfg(test)]
@@ -57,10 +63,27 @@ impl DbiDatabase {
 
     pub async fn do_insert(&mut self, data_object: &mut DataObject) -> Result<u64, Error> {
         match data_object {
-            DataObject::Project(_) => todo!(),
+            DataObject::Project(project) => <Project>::insert_one(&mut self.pool, project).await,
             #[cfg(test)]
             DataObject::MyTable(value) => <tests::MyTable>::insert_one(&mut self.pool, value).await,
         }
+    }
+
+    pub async fn fetch_all(
+        &mut self,
+        data_object: &DataObject,
+    ) -> Result<Box<DataCollection>, Error> {
+        let results = match data_object {
+            DataObject::Project(project) => Box::new(DataCollection::Projects(
+                Project::retrieve_all(&self.pool).await?,
+            )),
+            #[cfg(test)]
+            DataObject::MyTable(value) => Box::new(DataCollection::MyTables(
+                <tests::MyTable>::retrieve_all(&self.pool).await?,
+            )),
+        };
+        // Err(Error::Protocol("Unexpected error".to_string()))
+        Ok(results)
     }
 
     pub async fn fetch_one(&mut self, data_object: &mut DataObject) -> Result<(), Error> {
@@ -69,25 +92,21 @@ impl DbiDatabase {
             #[cfg(test)]
             DataObject::MyTable(table) => table.retrieve_one(&self.pool).await,
         }
-        //Ok(0)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::result;
+
     use super::*;
     use chrono::NaiveDate;
     use database::query::DbObject;
     use serde::{Deserialize, Serialize};
+    use sqlx::pool;
     use sqlx::query::Query;
-    use sqlx::sqlite::Sqlite;
-    use sqlx::sqlite::SqliteArguments;
-    use sqlx::sqlite::SqliteRow;
-    use sqlx::Column;
-    use sqlx::Error;
-    use sqlx::FromRow;
-    use sqlx::Pool;
-    use sqlx::Row;
+    use sqlx::sqlite::{Sqlite, SqliteArguments, SqliteRow};
+    use sqlx::{Column, Error, FromRow, Pool, Row};
 
     #[tokio::test]
     async fn test_database_select() -> Result<(), Error> {
@@ -100,7 +119,6 @@ mod tests {
             Err(error) => return Err(error),
         };
 
-        inserted.id = 1;
         let mut mytable = MyTable::default();
         mytable.id = inserted.id;
         let mut dao = DataObject::MyTable(mytable.clone());
@@ -114,14 +132,29 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_database_insert_query() -> Result<(), Error> {
+    async fn test_database_select_all() -> Result<(), Error> {
         let config = DbConfig::new("sqlite::memory:");
         let mut db = DbiDatabase::new(config).await?;
         db.create_table().await?;
-        let _inserted = match setup(&mut db).await {
-            Ok(value) => value,
-            Err(error) => return Err(error),
+        let mut expected: Vec<MyTable> = Vec::with_capacity(3);
+
+        for n in 1..=3 {
+            match setup(&mut db).await {
+                Ok(value) => expected.push(value),
+                Err(error) => return Err(error),
+            };
+        }
+
+        let mut mytable = MyTable::default();
+        let dao = DataObject::MyTable(mytable);
+        let result = db.fetch_all(&dao).await?;
+
+        let tables = match *result {
+            DataCollection::MyTables(tables) => tables,
+            _ => todo!(),
         };
+
+        assert_eq!(tables, expected);
         Ok(())
     }
 
@@ -156,11 +189,11 @@ mod tests {
             .execute(&db.pool)
             .await?;
 
-        if result.rows_affected() > 0 {
-            let rows = result.rows_affected();
-            return Ok(my_table);
-        }
-        Err(Error::Protocol("Insert returned 0 rows affected".into()))
+        let row: (i64,) = sqlx::query_as("SELECT last_insert_rowid()")
+            .fetch_one(&db.pool)
+            .await?;
+        my_table.id = row.0 as u64;
+        Ok(my_table)
     }
 
     #[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize, FromRow)]
@@ -203,14 +236,8 @@ mod tests {
                 .await?;
 
             let tbl: MyTable = MyTable::from_row(&row)?;
-            eprintln!("Row in table: {:?}", tbl);
-
-            let result: SqliteRow = sqlx::query(sql)
-                .bind(self.id as i64)
-                .fetch_one(pool)
-                .await?;
-            self.data = result.try_get("data")?;
-            self.created_at = result.try_get("created_at")?;
+            self.data = tbl.data;
+            self.created_at = tbl.created_at;
             Ok(())
         }
     }
