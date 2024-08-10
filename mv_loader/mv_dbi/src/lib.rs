@@ -183,15 +183,17 @@ mod tests {
         my_table.data = "A setup object".to_string();
         let sql = "INSERT INTO my_table (data, created_at) VALUES (?, ?)";
 
+        let mut tx = db.pool.begin().await?;
         let result = sqlx::query(sql)
             .bind(my_table.data.clone())
             .bind(my_table.created_at)
-            .execute(&db.pool)
+            .execute(&mut *tx)
             .await?;
 
         let row: (i64,) = sqlx::query_as("SELECT last_insert_rowid()")
-            .fetch_one(&db.pool)
+            .fetch_one(&mut *tx)
             .await?;
+        tx.commit().await?;
         my_table.id = row.0 as u64;
         Ok(my_table)
     }
@@ -225,7 +227,9 @@ mod tests {
         }
 
         async fn retrieve_all(pool: &Pool<Sqlite>) -> Result<Vec<MyTable>, Error> {
-            todo!()
+            let sql = "SELECT id, data, created_at FROM my_table ORDER BY id ASC";
+            let records: Vec<MyTable> = sqlx::query_as(&sql).fetch_all(pool).await?;
+            Ok(records)
         }
 
         async fn retrieve_one(&mut self, pool: &Pool<Sqlite>) -> Result<(), Error> {

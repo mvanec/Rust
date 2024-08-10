@@ -16,6 +16,7 @@ use crate::database::query::DbObject;
 use crate::DataObject;
 
 #[derive(Debug, Clone, Default, FromRow, PartialEq, Deserialize, Serialize)]
+#[sqlx(rename_all = "PascalCase")]
 pub struct Project {
     pub project_id: Uuid,
     pub project_name: String,
@@ -30,13 +31,13 @@ impl DbObject<Sqlite, Project> for Project {
     async fn insert_one(pool: &sqlx::Pool<Sqlite>, dbo: &mut Project) -> Result<u64, Error> {
         let mut tx = pool.begin().await?;
         let query_str = "INSERT INTO projects (
-            project_id,
-            project_name,
-            project_start_date,
-            project_end_date,
-            pay_rate,
-            project_duration,
-            project_total_pay
+            ProjectId,
+            ProjectName,
+            ProjectStartDate,
+            ProjectEndDate,
+            PayRate,
+            ProjectDuration,
+            ProjectTotalPay
         ) VALUES (
             $1, $2, $3, $4, $5, $6, $7
         )";

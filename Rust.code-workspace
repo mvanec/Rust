@@ -5,7 +5,6 @@
 		}
     ],
     "settings": {
-        "editor.cursorStyle": "block",
         "debug.openExplorerOnEnd": true,
         "rust-analyzer.debug.openDebugPane": true
     }
