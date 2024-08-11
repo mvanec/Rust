@@ -2,11 +2,14 @@
 // models.rs
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
+use sqlx::error::BoxDynError;
 use sqlx::query::Query;
 use sqlx::sqlite::Sqlite;
 use sqlx::sqlite::SqliteArguments;
 use sqlx::sqlite::SqliteRow;
+use sqlx::sqlite::SqliteValueRef;
 use sqlx::Column;
+use sqlx::Decode;
 use sqlx::Error;
 use sqlx::FromRow;
 use sqlx::Row;
@@ -50,6 +53,8 @@ impl DbObject<Sqlite, Project> for Project {
             .execute(&mut *tx)
             .await?;
 
+        tx.commit().await?;
+
         Ok(query.rows_affected())
     }
 
@@ -62,7 +67,7 @@ impl DbObject<Sqlite, Project> for Project {
             ProjectDuration,
             TotalPay
         FROM Projects
-        ORRDER BY ProjectDate ASC";
+        ORDER BY ProjectDate ASC";
         let records: Vec<Project> = sqlx::query_as(&sql).fetch_all(pool).await?;
         Ok(records)
     }
@@ -76,8 +81,8 @@ impl DbObject<Sqlite, Project> for Project {
             ProjectDuration,
             TotalPay
         FROM Projects
-        ORRDER BY ProjectDate ASC
-        WHERE project_id = ?";
+        WHERE ProjectId = ?
+        ORDER BY ProjectDate ASC";
 
         let row: SqliteRow = sqlx::query(&sql)
             .bind(self.project_id)
@@ -98,21 +103,17 @@ impl DbObject<Sqlite, Project> for Project {
 
 #[cfg(test)]
 mod tests {
+    use crate::utils::*;
+    use crate::DataCollection;
     use crate::DbConfig;
-    use crate::DbiDatabase;
     use crate::DbObject;
+    use crate::DbiDatabase;
     use chrono::NaiveDate;
     use sqlx::migrate::Migrator;
     use sqlx::Error;
     use uuid::Uuid;
 
     use super::Project;
-
-    fn make_uuid(value: &String) -> Uuid {
-        eprintln!("OID = {}", Uuid::NAMESPACE_OID.to_string());
-        let uuid = Uuid::new_v5(&Uuid::NAMESPACE_OID, value.as_bytes());
-        uuid
-    }
 
     // Uuid:OID = 6ba7b812-9dad-11d1-80b4-00c04fd430c8
     fn make_project() -> Project {
@@ -129,7 +130,6 @@ mod tests {
         let dt = project.project_date.format("%a %b %-d %C%y").to_string();
         let value = format!("{}{}", &project.project_name, &dt);
         project.project_id = make_uuid(&value);
-        eprintln!("Project: {project:#?}");
         project
     }
 
@@ -146,6 +146,44 @@ mod tests {
         let mut project = make_project();
         let num_rows = Project::insert_one(&db.pool, &mut project).await?;
         assert_eq!(num_rows, 1);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_select_one() -> Result<(), Error> {
+        let mut db = setup().await?;
+        let mut expected = make_project();
+        let num_rows = Project::insert_one(&db.pool, &mut expected).await?;
+        assert_eq!(num_rows, 1);
+
+        let mut actual = Project::default();
+        actual.project_id = expected.project_id.clone();
+        actual.retrieve_one(&db.pool).await?;
+        assert_eq!(actual, expected);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_select_all() -> Result<(), Error> {
+        let mut db = setup().await?;
+        let mut p1 = make_project();
+        let mut p2 = make_project();
+        let mut p3 = make_project();
+
+        let mut expected: Vec<Project> = vec![p1, p2, p3];
+        let mut i = 0;
+        for mut n in &mut expected {
+            n.project_name = n.project_name.clone() + "0" + &i.to_string().as_str();
+            i += 1;
+            let dt = &n.project_date.format("%a %b %-d %C%y").to_string();
+            let value = format!("{}{}", &n.project_name, &dt);
+            n.project_id = make_uuid(&value);
+            Project::insert_one(&db.pool, &mut n).await?;
+        }
+
+        let actual = Project::retrieve_all(&db.pool).await?;
+        assert_eq!(actual, expected);
+
         Ok(())
     }
 }

@@ -2,6 +2,7 @@
 
 mod database;
 mod model;
+mod utils;
 
 use database::query::DbObject;
 
@@ -45,6 +46,9 @@ pub struct DbiDatabase {
 impl DbiDatabase {
     pub async fn new(config: DbConfig) -> Result<Self, Error> {
         let pool = Pool::connect(&config.url).await?;
+        let result = sqlx::query("PRAGMA foreign_keys = ON;")
+            .execute(&pool)
+            .await?;
         Ok(Self { pool })
     }
 
