@@ -48,19 +48,6 @@ impl DbiDatabase {
         Ok(Self { pool })
     }
 
-    pub async fn create_table(&mut self) -> Result<(), Error> {
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS my_table (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                data TEXT NOT NULL,
-                created_at DATE NOT NULL
-            )",
-        )
-        .execute(&self.pool)
-        .await?;
-        Ok(())
-    }
-
     pub async fn do_insert(&mut self, data_object: &mut DataObject) -> Result<u64, Error> {
         match data_object {
             DataObject::Project(project) => <Project>::insert_one(&mut self.pool, project).await,
@@ -113,7 +100,7 @@ mod tests {
         let config = DbConfig::new("sqlite::memory:");
         let mut db = DbiDatabase::new(config).await?;
 
-        db.create_table().await?;
+        create_table(&mut db).await?;
         let mut inserted = match setup(&mut db).await {
             Ok(value) => value,
             Err(error) => return Err(error),
@@ -135,7 +122,7 @@ mod tests {
     async fn test_database_select_all() -> Result<(), Error> {
         let config = DbConfig::new("sqlite::memory:");
         let mut db = DbiDatabase::new(config).await?;
-        db.create_table().await?;
+        create_table(&mut db).await?;
         let mut expected: Vec<MyTable> = Vec::with_capacity(3);
 
         for n in 1..=3 {
@@ -162,7 +149,7 @@ mod tests {
     async fn test_dbobject_insert_one() -> Result<(), Error> {
         let config = DbConfig::new("sqlite::memory:");
         let mut db = DbiDatabase::new(config).await?;
-        db.create_table().await?;
+        create_table(&mut db).await?;
         let mut mt = MyTable {
             id: 0,
             data: "Testing Insert".to_string(),
@@ -181,7 +168,7 @@ mod tests {
     async fn setup(db: &mut DbiDatabase) -> Result<MyTable, Error> {
         let mut my_table = MyTable::default();
         my_table.data = "A setup object".to_string();
-        let sql = "INSERT INTO my_table (data, created_at) VALUES (?, ?)";
+        let sql = "INSERT INTO MyTable (Data, CreatedAt) VALUES (?, ?)";
 
         let mut tx = db.pool.begin().await?;
         let result = sqlx::query(sql)
@@ -198,7 +185,21 @@ mod tests {
         Ok(my_table)
     }
 
+    pub async fn create_table(db: &mut DbiDatabase) -> Result<(), Error> {
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS MyTable (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                Data TEXT NOT NULL,
+                CreatedAt DATE NOT NULL
+            )",
+        )
+        .execute(&db.pool)
+        .await?;
+        Ok(())
+    }
+
     #[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize, FromRow)]
+    #[sqlx(rename_all = "PascalCase")]
     pub struct MyTable {
         id: u64,
         data: String,
@@ -207,7 +208,7 @@ mod tests {
 
     impl DbObject<Sqlite, MyTable> for MyTable {
         async fn insert_one(pool: &Pool<Sqlite>, dbo: &mut MyTable) -> Result<u64, Error> {
-            let query_str = "INSERT INTO my_table (data, created_at) VALUES (?, ?)";
+            let query_str = "INSERT INTO MyTable (Data, CreatedAt) VALUES (?, ?)";
             let mut tx = pool.begin().await?;
 
             sqlx::query(query_str)
@@ -227,15 +228,16 @@ mod tests {
         }
 
         async fn retrieve_all(pool: &Pool<Sqlite>) -> Result<Vec<MyTable>, Error> {
-            let sql = "SELECT id, data, created_at FROM my_table ORDER BY id ASC";
+            let sql = "SELECT Id, Data, CreatedAt FROM MyTable ORDER BY Id ASC";
             let records: Vec<MyTable> = sqlx::query_as(&sql).fetch_all(pool).await?;
             Ok(records)
         }
 
         async fn retrieve_one(&mut self, pool: &Pool<Sqlite>) -> Result<(), Error> {
-            let sql = "SELECT id, data, created_at FROM my_table WHERE id = ?";
+            let sql = "SELECT Id, Data, CreatedAt FROM MyTable WHERE Id = ?";
 
-            let row: SqliteRow = sqlx::query("SELECT * FROM my_table")
+            let row: SqliteRow = sqlx::query(&sql)
+                .bind(self.id as i64)
                 .fetch_one(pool)
                 .await?;
 
