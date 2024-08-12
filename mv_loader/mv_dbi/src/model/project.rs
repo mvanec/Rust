@@ -30,7 +30,7 @@ pub struct Project {
 }
 
 impl DbObject<Sqlite, Project> for Project {
-    async fn insert_one(pool: &sqlx::Pool<Sqlite>, dbo: &mut Project) -> Result<u64, Error> {
+    async fn insert_one(pool: &sqlx::Pool<Sqlite>, dbo: &Project) -> Result<u64, Error> {
         let mut tx = pool.begin().await?;
         let sql = "INSERT INTO Projects (
             ProjectId,
@@ -70,6 +70,10 @@ impl DbObject<Sqlite, Project> for Project {
         ORDER BY ProjectDate ASC";
         let records: Vec<Project> = sqlx::query_as(&sql).fetch_all(pool).await?;
         Ok(records)
+    }
+
+    async fn retrieve_some(pool: &sqlx::Pool<Sqlite>, uuid: &Uuid) -> Result<Vec<Project>, Error> {
+        todo!()
     }
 
     async fn retrieve_one(&mut self, pool: &sqlx::Pool<Sqlite>) -> Result<(), Error> {
@@ -141,16 +145,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_insert_one() -> Result<(), Error> {
+    async fn test_insert_one_project() -> Result<(), Error> {
         let mut db = setup().await?;
-        let mut project = make_project();
-        let num_rows = Project::insert_one(&db.pool, &mut project).await?;
+        let project = make_project();
+        let num_rows = Project::insert_one(&db.pool, &project).await?;
         assert_eq!(num_rows, 1);
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_select_one() -> Result<(), Error> {
+    async fn test_select_one_project() -> Result<(), Error> {
         let mut db = setup().await?;
         let mut expected = make_project();
         let num_rows = Project::insert_one(&db.pool, &mut expected).await?;
@@ -164,7 +168,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_select_all() -> Result<(), Error> {
+    async fn test_select_all_project() -> Result<(), Error> {
         let mut db = setup().await?;
         let mut p1 = make_project();
         let mut p2 = make_project();

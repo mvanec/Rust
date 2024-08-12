@@ -52,7 +52,7 @@ impl DbiDatabase {
         Ok(Self { pool })
     }
 
-    pub async fn do_insert(&mut self, data_object: &mut DataObject) -> Result<u64, Error> {
+    pub async fn do_insert(&mut self, data_object: &DataObject) -> Result<u64, Error> {
         match data_object {
             DataObject::Project(project) => <Project>::insert_one(&mut self.pool, project).await,
             #[cfg(test)]
@@ -100,7 +100,7 @@ mod tests {
     use sqlx::{Column, Error, FromRow, Pool, Row};
 
     #[tokio::test]
-    async fn test_database_select() -> Result<(), Error> {
+    async fn test_database_select_one() -> Result<(), Error> {
         let config = DbConfig::new("sqlite::memory:");
         let mut db = DbiDatabase::new(config).await?;
 
@@ -160,10 +160,11 @@ mod tests {
             created_at: NaiveDate::MAX,
         };
         let mut dao = DataObject::MyTable(mt.clone());
-        let result = db.do_insert(&mut dao).await?;
+        let result = db.do_insert(&dao).await?;
         assert_eq!(result, 1);
         mt.id = 1;
-        if let DataObject::MyTable(mytable) = dao {
+        if let DataObject::MyTable(mut mytable) = dao {
+            mytable.id = result;
             assert_eq!(&mytable, &mt);
         }
         Ok(())
@@ -211,7 +212,7 @@ mod tests {
     }
 
     impl DbObject<Sqlite, MyTable> for MyTable {
-        async fn insert_one(pool: &Pool<Sqlite>, dbo: &mut MyTable) -> Result<u64, Error> {
+        async fn insert_one(pool: &Pool<Sqlite>, dbo: &MyTable) -> Result<u64, Error> {
             let query_str = "INSERT INTO MyTable (Data, CreatedAt) VALUES (?, ?)";
             let mut tx = pool.begin().await?;
 
@@ -224,17 +225,24 @@ mod tests {
             let row: (i64,) = sqlx::query_as("SELECT last_insert_rowid()")
                 .fetch_one(&mut *tx)
                 .await?;
-            dbo.id = row.0 as u64;
+            let row_id = row.0 as u64;
 
             tx.commit().await?;
 
-            Ok(dbo.id)
+            Ok(row_id)
         }
 
         async fn retrieve_all(pool: &Pool<Sqlite>) -> Result<Vec<MyTable>, Error> {
             let sql = "SELECT Id, Data, CreatedAt FROM MyTable ORDER BY Id ASC";
             let records: Vec<MyTable> = sqlx::query_as(&sql).fetch_all(pool).await?;
             Ok(records)
+        }
+
+        async fn retrieve_some(
+            pool: &Pool<Sqlite>,
+            uuid: &uuid::Uuid,
+        ) -> Result<Vec<MyTable>, Error> {
+            todo!()
         }
 
         async fn retrieve_one(&mut self, pool: &Pool<Sqlite>) -> Result<(), Error> {

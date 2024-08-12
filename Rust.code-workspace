@@ -6,6 +6,11 @@
     ],
     "settings": {
         "debug.openExplorerOnEnd": true,
-        "rust-analyzer.debug.openDebugPane": true
+        "rust-analyzer.debug.openDebugPane": true,
+        "editor.quickSuggestions": {
+            "other": "on"
+        },
+        "editor.hover.enabled": true,
+        "editor.codeLens": true
     }
 }
