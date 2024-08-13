@@ -166,7 +166,6 @@ mod tests {
     async fn setup() -> Result<DbiDatabase, Error> {
         let config = DbConfig::new("sqlite::memory:");
         let mut db = DbiDatabase::new(config).await?;
-        sqlx::migrate!("../migrations").run(&db.pool).await?;
         Ok(db)
     }
 
