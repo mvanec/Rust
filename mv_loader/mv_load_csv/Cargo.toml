@@ -1,0 +1,7 @@
+[package]
+name = "mv_load_csv"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+csv = "1.3.0"
