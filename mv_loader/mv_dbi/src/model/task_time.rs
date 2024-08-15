@@ -89,7 +89,10 @@ impl DbObject<Sqlite, TaskTime> for TaskTime {
         FROM TaskTimes
         WHERE TaskTimeId = ?";
 
-        let row: SqliteRow = sqlx::query(&sql).bind(self.task_time_id as i64).fetch_one(pool).await?;
+        let row: SqliteRow = sqlx::query(&sql)
+            .bind(self.task_time_id as i64)
+            .fetch_one(pool)
+            .await?;
         let temp = TaskTime::from_row(&row)?;
 
         self.task_time_id = temp.task_time_id;

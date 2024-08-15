@@ -9,3 +9,4 @@ serde = { version = "1.0.204", features = ["derive"] }
 time = { version = "0.3.36", features = ["serde", "alloc", "formatting", "parsing", "macros"] }
 csv = "1.3.0"
 getopts = "0.2.21"
+mv_dbi = { path = "../mv_dbi" }

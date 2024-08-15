@@ -3,6 +3,12 @@ use csv::ReaderBuilder;
 use getopts::Options;
 use serde::{Deserialize, Deserializer};
 use std::{env, error::Error, fs::File, process};
+use time::macros::format_description;
+use time::Time;
+
+use mv_dbi::model::project::{self, Project};
+use mv_dbi::model::project_task::ProjectTask;
+use mv_dbi::model::task_time::TaskTime;
 
 #[derive(Debug, Default)]
 pub struct AppOptions {
@@ -14,7 +20,7 @@ pub struct AppOptions {
 #[allow(dead_code)]
 #[derive(Debug, Default, Clone, Deserialize)]
 struct Record {
-    #[serde(rename = "Date", deserialize_with = "csv::invalid_option")]
+    #[serde(rename = "Date", deserialize_with = "from_date_string")]
     date: Option<NaiveDate>,
     #[serde(rename = "Project", deserialize_with = "csv::invalid_option")]
     project: Option<String>,
@@ -45,9 +51,44 @@ fn run(opts: &AppOptions) -> Result<(), Box<dyn Error>> {
         .has_headers(opts.has_headers)
         .from_reader(file);
 
+    let mut records: Vec<Record> = Vec::new();
     for result in reader.deserialize() {
         let record: Record = result?;
-        println!("{:?}", record);
+        // println!("{:?}", &record);
+        records.push(record);
+    }
+    convert_records(records)?;
+    Ok(())
+}
+
+/// Convert
+fn convert_records(records: Vec<Record>) -> Result<(), Box<dyn Error>> {
+
+    let rec_iter = records.iter();
+
+    let mut project: Project;
+    let mut task: ProjectTask;
+    let mut task_time: TaskTime;
+
+    for rec in rec_iter {
+        match &rec.project {
+            Some(project_name) => {
+                project = Project::default();
+                project.project_name = project_name.clone();
+                project.project_date = rec.date.unwrap();
+                project.pay_rate = rec.pay_rate.unwrap_or(0.0);
+                println!("{:?}", project);
+            },
+            None => continue
+        }
+
+        // if let Some(project_name) = &rec.project {
+        //     project = Project::default();
+        //     project.project_name = project_name.clone();
+        //     project.project_date = rec.date.unwrap();
+        //     project.pay_rate = rec.pay_rate.unwrap_or(0.0);
+        //     println!("{:?}", project);
+        // }
     }
 
     Ok(())
@@ -125,8 +166,22 @@ where
     Ok(TimeDelta::minutes(minutes))
 }
 
-use time::macros::format_description;
-use time::Time;
+///
+/// Convert a string in "MM/DD/YYYY" format to a TimeDelta
+///
+fn from_date_string<'de, D>(deserializer: D) -> Result<Option<NaiveDate>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: &str = Deserialize::deserialize(deserializer)?;
+    if s.is_empty() {
+        return Ok(None);
+    }
+
+    let date_value = NaiveDate::parse_from_str(&s, "%-m/%-d/%Y").expect(format!("Unable to parse date {s}").as_str());
+
+    Ok(Some(date_value))
+}
 
 fn parse_time<'de, D>(deserializer: D) -> Result<NaiveTime, D::Error>
 where
@@ -135,6 +190,7 @@ where
     let s: &str = Deserialize::deserialize(deserializer)?;
     let format = format_description!("[hour padding:none repr:12]:[minute] [period]");
     let t = Time::parse(s, &format).unwrap();
-    let nt = NaiveTime::from_hms_opt(t.hour().into(), t.minute().into(), t.second().into()).unwrap();
+    let nt =
+        NaiveTime::from_hms_opt(t.hour().into(), t.minute().into(), t.second().into()).unwrap();
     Ok(nt)
 }

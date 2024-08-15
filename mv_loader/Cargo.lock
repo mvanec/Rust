@@ -709,6 +709,7 @@ dependencies = [
  "chrono",
  "csv",
  "getopts",
+ "mv_dbi",
  "serde",
  "time",
 ]

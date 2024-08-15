@@ -1,8 +1,8 @@
 #![allow(unused)]
 
-mod database;
-mod model;
-mod utils;
+pub mod database;
+pub mod model;
+pub mod utils;
 
 use database::query::DbObject;
 
