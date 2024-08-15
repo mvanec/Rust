@@ -37,10 +37,23 @@ async fn main() {
         println!("{} | {}", &prid.unwrap(), &name.unwrap());
     }
     try_deserialize();
+    parse_time()
 }
 
 fn try_deserialize() {
     let start_date = "2023-08-01";
     let n_date: NaiveDate = NaiveDate::from_str(&start_date).unwrap();
     println!("Parsed date = {}", n_date);
+}
+
+use time::Time;
+use time::format_description;
+use time::macros::format_description;
+
+fn parse_time() {
+    let csv_time = "9:30 PM";
+    let format = format_description!("[hour padding:none repr:12]:[minute] [period]");
+    let t = Time::parse(csv_time, &format).unwrap();
+    println!("Time is {t:?}");
+    println!("Hour is {}", t.hour());
 }

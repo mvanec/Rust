@@ -11,3 +11,4 @@ sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "any", "sqlite
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
 async-std = { version = "1.12.0", features = [ "attributes" ] }
 async-trait = "0.1.80"
+time = { version = "0.3.36", features = ["serde", "alloc", "formatting", "parsing", "macros"] }
