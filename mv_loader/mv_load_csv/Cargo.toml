@@ -7,6 +7,7 @@ edition = "2021"
 chrono = { version = "0.4.38", features = ["serde", "alloc"] }
 serde = { version = "1.0.204", features = ["derive"] }
 time = { version = "0.3.36", features = ["serde", "alloc", "formatting", "parsing", "macros"] }
+uuid = { version = "1.10.0", features = ["v4", "v5", "v7", "serde"] }
 csv = "1.3.0"
 getopts = "0.2.21"
 mv_dbi = { path = "../mv_dbi" }

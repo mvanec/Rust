@@ -712,6 +712,7 @@ dependencies = [
  "mv_dbi",
  "serde",
  "time",
+ "uuid",
 ]
 
 [[package]]

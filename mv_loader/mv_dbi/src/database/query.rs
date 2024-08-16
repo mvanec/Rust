@@ -2,7 +2,7 @@ use sqlx::Error;
 use sqlx::Pool;
 use uuid::Uuid;
 
-#[allow(dead_code)]
+#[allow(dead_code, async_fn_in_trait)]
 pub trait DbObject<DB, T>
 where
     DB: sqlx::Database,

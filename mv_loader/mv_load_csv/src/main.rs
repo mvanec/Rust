@@ -1,4 +1,4 @@
-use chrono::{NaiveDate, NaiveTime, TimeDelta};
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime, TimeDelta};
 use csv::ReaderBuilder;
 use getopts::Options;
 use serde::{Deserialize, Deserializer};
@@ -6,9 +6,8 @@ use std::{env, error::Error, fs::File, process};
 use time::macros::format_description;
 use time::Time;
 
-use mv_dbi::model::project::{self, Project};
-use mv_dbi::model::project_task::ProjectTask;
-use mv_dbi::model::task_time::TaskTime;
+mod models;
+use models::{Project, ProjectTask, TaskTime};
 
 #[derive(Debug, Default)]
 pub struct AppOptions {
@@ -66,30 +65,63 @@ fn convert_records(records: Vec<Record>) -> Result<(), Box<dyn Error>> {
 
     let rec_iter = records.iter();
 
-    let mut project: Project;
-    let mut task: ProjectTask;
-    let mut task_time: TaskTime;
+    let mut project: Project = Project::default();
+    let mut task: ProjectTask = ProjectTask::default();
+
+    let mut pflag = false;
+    let mut tflag = false;
+    let mut all_projects: Vec<Project> = Vec::with_capacity(rec_iter.len());
 
     for rec in rec_iter {
         match &rec.project {
             Some(project_name) => {
+                if pflag {
+                    project.tasks.push(task);
+                    all_projects.push(project);
+                    task = ProjectTask::default();
+                    tflag = false;
+                }
+                else {
+                    pflag = true;
+                }
                 project = Project::default();
                 project.project_name = project_name.clone();
                 project.project_date = rec.date.unwrap();
                 project.pay_rate = rec.pay_rate.unwrap_or(0.0);
-                println!("{:?}", project);
+                // println!("{:?}", &project.project_name);
             },
-            None => continue
+            None => (),
         }
 
-        // if let Some(project_name) = &rec.project {
-        //     project = Project::default();
-        //     project.project_name = project_name.clone();
-        //     project.project_date = rec.date.unwrap();
-        //     project.pay_rate = rec.pay_rate.unwrap_or(0.0);
-        //     println!("{:?}", project);
-        // }
+        let start_time = NaiveDateTime::new(project.project_date.clone(), rec.start_time.clone());
+        let end_time   = NaiveDateTime::new(project.project_date.clone(), rec.end_time.clone());
+
+        match &rec.task_name {
+            Some(task_name) => {
+                if tflag {
+                    project.tasks.push(task);
+                }
+                else {
+                    tflag = true;
+                }
+                task = ProjectTask::default();
+                task.task_name = task_name.clone();
+                task.task_date_time = start_time.clone();
+                // println!("{:?}", &task.task_name);
+            },
+            None => (),
+        }
+        let mut task_time = TaskTime::default();
+        task.task_duration += rec.duration.num_milliseconds();
+        task_time.start_time = start_time;
+        task_time.end_time = end_time;
+        task.task_times.push(task_time);
     }
+    project.tasks.push(task);
+    all_projects.push(project);
+
+    println!("+++++++++++++++++++++++++++++++++++++++++++++++");
+    println!("{:#?}", &all_projects);
 
     Ok(())
 }
