@@ -25,7 +25,7 @@ pub struct Project {
     pub project_name: String,
     pub project_date: NaiveDate,
     pub pay_rate: f64,
-    pub project_duration: i32,
+    pub project_duration: i64,
     pub total_pay: f64,
 }
 
@@ -48,7 +48,7 @@ impl DbObject<Sqlite, Project> for Project {
             .bind::<String>(dbo.project_name.clone())
             .bind::<NaiveDate>(dbo.project_date)
             .bind::<f64>(dbo.pay_rate)
-            .bind::<i32>(dbo.project_duration)
+            .bind::<i64>(dbo.project_duration)
             .bind::<f64>(dbo.total_pay)
             .execute(&mut *tx)
             .await?;

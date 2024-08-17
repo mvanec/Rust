@@ -1,6 +1,7 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, TimeDelta};
 use csv::ReaderBuilder;
 use getopts::Options;
+use mv_dbi::{model::project, utils::make_uuid, DbConfig, DbiDatabase};
 use serde::{Deserialize, Deserializer};
 use std::{env, error::Error, fs::File, process};
 use time::macros::format_description;
@@ -12,6 +13,7 @@ use models::{Project, ProjectTask, TaskTime};
 #[derive(Debug, Default)]
 pub struct AppOptions {
     pub file: String,
+    pub db_name: String,
     pub has_headers: bool,
 }
 
@@ -35,16 +37,17 @@ struct Record {
     duration: TimeDelta,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let opts = process_options();
 
-    if let Err(err) = run(&opts) {
+    if let Err(err) = run(&opts).await {
         println!("{}", err);
         process::exit(1);
     }
 }
 
-fn run(opts: &AppOptions) -> Result<(), Box<dyn Error>> {
+async fn run(opts: &AppOptions) -> Result<(), Box<dyn Error>> {
     let file = File::open(&opts.file)?;
     let mut reader = ReaderBuilder::new()
         .has_headers(opts.has_headers)
@@ -56,13 +59,15 @@ fn run(opts: &AppOptions) -> Result<(), Box<dyn Error>> {
         // println!("{:?}", &record);
         records.push(record);
     }
-    convert_records(records)?;
+    let converted = convert_records(records)?;
+    save_records_to_database(converted, opts).await?;
     Ok(())
 }
 
-/// Convert
-fn convert_records(records: Vec<Record>) -> Result<(), Box<dyn Error>> {
-
+/// Convert the CSV data into a hierarchy ready to put into the
+/// database.
+///
+fn convert_records(records: Vec<Record>) -> Result<Vec<Project>, Box<dyn Error>> {
     let rec_iter = records.iter();
 
     let mut project: Project = Project::default();
@@ -80,41 +85,46 @@ fn convert_records(records: Vec<Record>) -> Result<(), Box<dyn Error>> {
                     all_projects.push(project);
                     task = ProjectTask::default();
                     tflag = false;
-                }
-                else {
+                } else {
                     pflag = true;
                 }
                 project = Project::default();
                 project.project_name = project_name.clone();
                 project.project_date = rec.date.unwrap();
                 project.pay_rate = rec.pay_rate.unwrap_or(0.0);
+                let dt = project.project_date.format("%a %b %-d %C%y").to_string();
+                let value = format!("{}{}", &project.project_name, &dt);
+                project.project_id = make_uuid(&value);
                 // println!("{:?}", &project.project_name);
-            },
+            }
             None => (),
         }
 
         let start_time = NaiveDateTime::new(project.project_date.clone(), rec.start_time.clone());
-        let end_time   = NaiveDateTime::new(project.project_date.clone(), rec.end_time.clone());
+        let end_time = NaiveDateTime::new(project.project_date.clone(), rec.end_time.clone());
 
         match &rec.task_name {
             Some(task_name) => {
                 if tflag {
                     project.tasks.push(task);
-                }
-                else {
+                } else {
                     tflag = true;
                 }
                 task = ProjectTask::default();
+                task.project_id = project.project_id.clone();
                 task.task_name = task_name.clone();
                 task.task_date_time = start_time.clone();
+                let value = format!("{}{}", &task.project_id.to_string(), &task.task_name);
+                task.task_id = make_uuid(&value);
                 // println!("{:?}", &task.task_name);
-            },
+            }
             None => (),
         }
         let mut task_time = TaskTime::default();
         task.task_duration += rec.duration.num_milliseconds();
         task_time.start_time = start_time;
         task_time.end_time = end_time;
+        task_time.task_id = task.task_id.clone();
         task.task_times.push(task_time);
     }
     project.tasks.push(task);
@@ -123,9 +133,24 @@ fn convert_records(records: Vec<Record>) -> Result<(), Box<dyn Error>> {
     println!("+++++++++++++++++++++++++++++++++++++++++++++++");
     println!("{:#?}", &all_projects);
 
+    Ok(all_projects)
+}
+
+///
+/// Process the loaded and parsed CSV records into the database
+///
+async fn save_records_to_database(projects: Vec<Project>, opts: &AppOptions) -> Result<(), Box<dyn Error>> {
+    let config = DbConfig::new(&opts.db_name);
+    let mut db = DbiDatabase::new(config).await.unwrap();
+    for project in projects {
+        models::add_project(&project, &mut db).await.unwrap();
+    }
     Ok(())
 }
 
+///
+/// Parse the options from the command line arguments
+///
 pub fn process_options() -> AppOptions {
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
@@ -137,8 +162,14 @@ pub fn process_options() -> AppOptions {
         "The name of the CSV file to be processed",
         "<file>",
     );
-    opts.optflag("n", "no headers", "Indicate the file does not have headers");
+    opts.optflag("n", "no-headers", "Indicate the file does not have headers");
     opts.optflag("h", "help", "print this help menu");
+    opts.optopt(
+        "d",
+        "database",
+        "The path and name of the sqlite3 database file",
+        "<database>",
+    );
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -163,6 +194,13 @@ pub fn process_options() -> AppOptions {
     } else {
         print_usage(&program, opts);
         std::process::exit(1);
+    }
+
+    let db = matches.opt_str("d");
+    if let Some(db_file) = db {
+        app_opts.db_name = db_file;
+    } else {
+        app_opts.db_name = "sqlite::memory:".to_string();
     }
 
     if matches.opt_present("n") {
@@ -210,7 +248,8 @@ where
         return Ok(None);
     }
 
-    let date_value = NaiveDate::parse_from_str(&s, "%-m/%-d/%Y").expect(format!("Unable to parse date {s}").as_str());
+    let date_value = NaiveDate::parse_from_str(&s, "%-m/%-d/%Y")
+        .expect(format!("Unable to parse date {s}").as_str());
 
     Ok(Some(date_value))
 }
