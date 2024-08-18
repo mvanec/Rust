@@ -2,6 +2,14 @@
 name = "mv_load_csv"
 version = "0.1.0"
 edition = "2021"
+authors = ["Matt Vanecek <matt@mattvanecek.com>"]
+license = "MIT OR Apache-2.0"
+description = "Load my CSV project records into a database"
+readme = "README.md"
+homepage = "https://github.com/mvanec/Rust"
+repository = "https://github.com/mvanec/Rust/tree/main/mv_loader"
+keywords = ["cli", "csv", "sqlite"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 chrono = { version = "0.4.38", features = ["serde", "alloc"] }
