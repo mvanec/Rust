@@ -24,7 +24,7 @@ pub struct ProjectTask {
     pub task_id: Uuid,
     pub project_id: Uuid,
     pub task_name: String,
-    pub task_duration: i32,
+    pub task_duration: i64,
     pub task_date_time: NaiveDateTime,
 }
 
@@ -45,7 +45,7 @@ impl DbObject<Sqlite, ProjectTask> for ProjectTask {
             .bind::<Uuid>(dbo.task_id)
             .bind::<Uuid>(dbo.project_id)
             .bind::<String>(dbo.task_name.clone())
-            .bind::<i32>(dbo.task_duration)
+            .bind::<i64>(dbo.task_duration)
             .bind::<NaiveDateTime>(dbo.task_date_time)
             .execute(&mut *tx)
             .await?;

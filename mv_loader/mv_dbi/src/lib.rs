@@ -5,6 +5,9 @@ pub mod model;
 pub mod utils;
 
 use database::query::DbObject;
+use model::project_task::ProjectTask;
+use model::task_time::TaskTime;
+use sqlx::migrate::MigrateDatabase;
 
 use model::project;
 use model::project::Project;
@@ -12,16 +15,19 @@ use sqlx::Error;
 use sqlx::Pool;
 use sqlx::Row;
 use sqlx::Sqlite;
-// use sqlx::types::chrono::{NaiveDate, NaiveDateTime};
 
 pub enum DataCollection {
     Projects(Vec<Project>),
+    ProjectTasks(Vec<ProjectTask>),
+    TaskTimes(Vec<TaskTime>),
     #[cfg(test)]
     MyTables(Vec<tests::MyTable>),
 }
 
 pub enum DataObject {
     Project(Project),
+    ProjectTask(ProjectTask),
+    TaskTime(TaskTime),
     #[cfg(test)]
     MyTable(tests::MyTable),
 }
@@ -43,19 +49,38 @@ pub struct DbiDatabase {
     pool: Pool<Sqlite>,
 }
 
+const MEMORY_DB: &str = "sqlite::memory:";
+
 impl DbiDatabase {
     pub async fn new(config: DbConfig) -> Result<Self, Error> {
+        Self::check_and_create_database_file(&config.url).await?;
         let pool = Pool::connect(&config.url).await?;
-        sqlx::migrate!("../migrations").run(&pool).await?;
+
+        let result = sqlx::query("PRAGMA journal_mode = DELETE;")
+            .execute(&pool)
+            .await?;
+
         let result = sqlx::query("PRAGMA foreign_keys = ON;")
             .execute(&pool)
             .await?;
+        sqlx::migrate!("../migrations").run(&pool).await?;
         Ok(Self { pool })
+    }
+
+    async fn check_and_create_database_file(db_url: &str) -> Result<(), sqlx::Error> {
+        if !db_url.eq(MEMORY_DB) {
+            if !Sqlite::database_exists(&db_url).await.unwrap_or(false) {
+                Sqlite::create_database(&db_url).await?
+            }
+        }
+        Ok(())
     }
 
     pub async fn do_insert(&mut self, data_object: &DataObject) -> Result<u64, Error> {
         match data_object {
             DataObject::Project(project) => <Project>::insert_one(&mut self.pool, project).await,
+            DataObject::ProjectTask(task) => <ProjectTask>::insert_one(&mut self.pool, task).await,
+            DataObject::TaskTime(task_time) => <TaskTime>::insert_one(&mut self.pool, task_time).await,
             #[cfg(test)]
             DataObject::MyTable(value) => <tests::MyTable>::insert_one(&mut self.pool, value).await,
         }
@@ -69,6 +94,12 @@ impl DbiDatabase {
             DataObject::Project(project) => Box::new(DataCollection::Projects(
                 Project::retrieve_all(&self.pool).await?,
             )),
+            DataObject::ProjectTask(project) => Box::new(DataCollection::ProjectTasks(
+                ProjectTask::retrieve_all(&self.pool).await?,
+            )),
+            DataObject::TaskTime(project) => Box::new(DataCollection::TaskTimes(
+                TaskTime::retrieve_all(&self.pool).await?,
+            )),
             #[cfg(test)]
             DataObject::MyTable(value) => Box::new(DataCollection::MyTables(
                 <tests::MyTable>::retrieve_all(&self.pool).await?,
@@ -81,6 +112,8 @@ impl DbiDatabase {
     pub async fn fetch_one(&mut self, data_object: &mut DataObject) -> Result<(), Error> {
         match data_object {
             DataObject::Project(project) => project.retrieve_one(&self.pool).await,
+            DataObject::ProjectTask(task) => task.retrieve_one(&self.pool).await,
+            DataObject::TaskTime(task_time) => task_time.retrieve_one(&self.pool).await,
             #[cfg(test)]
             DataObject::MyTable(table) => table.retrieve_one(&self.pool).await,
         }
@@ -97,7 +130,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
     use sqlx::pool;
     use sqlx::query::Query;
-    use sqlx::sqlite::{Sqlite, SqliteArguments, SqliteRow};
+    use sqlx::sqlite::{SqliteArguments, SqliteRow};
     use sqlx::{Column, Error, FromRow, Pool, Row};
 
     #[tokio::test]

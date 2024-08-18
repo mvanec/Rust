@@ -1,14 +1,14 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, TimeDelta};
 use csv::ReaderBuilder;
 use getopts::Options;
-use mv_dbi::{model::project, utils::make_uuid, DbConfig, DbiDatabase};
+use mv_dbi::{utils::make_uuid, DbConfig, DbiDatabase};
 use serde::{Deserialize, Deserializer};
 use std::{env, error::Error, fs::File, process};
 use time::macros::format_description;
 use time::Time;
 
 mod models;
-use models::{Project, ProjectTask, TaskTime};
+use models::{combine_like_projects, Project, ProjectTask, TaskTime};
 
 #[derive(Debug, Default)]
 pub struct AppOptions {
@@ -81,6 +81,8 @@ fn convert_records(records: Vec<Record>) -> Result<Vec<Project>, Box<dyn Error>>
         match &rec.project {
             Some(project_name) => {
                 if pflag {
+                    let pd = TimeDelta::milliseconds(project.project_duration);
+                    project.total_pay = (pd.num_minutes() as f64/60.0) * project.pay_rate;
                     project.tasks.push(task);
                     all_projects.push(project);
                     task = ProjectTask::default();
@@ -90,19 +92,23 @@ fn convert_records(records: Vec<Record>) -> Result<Vec<Project>, Box<dyn Error>>
                 }
                 project = Project::default();
                 project.project_name = project_name.clone();
-                project.project_date = rec.date.unwrap();
+                project.project_date = rec.date.unwrap().into();
                 project.pay_rate = rec.pay_rate.unwrap_or(0.0);
                 let dt = project.project_date.format("%a %b %-d %C%y").to_string();
                 let value = format!("{}{}", &project.project_name, &dt);
                 project.project_id = make_uuid(&value);
+
+                let dt_tm = NaiveDateTime::new(rec.date.unwrap().into(), rec.start_time);
+                project.project_date = dt_tm;
                 // println!("{:?}", &project.project_name);
             }
             None => (),
         }
 
-        let start_time = NaiveDateTime::new(project.project_date.clone(), rec.start_time.clone());
-        let end_time = NaiveDateTime::new(project.project_date.clone(), rec.end_time.clone());
-
+        let start_time = NaiveDateTime::new(project.project_date.into(), rec.start_time.clone());
+        let end_time = NaiveDateTime::new(project.project_date.into(), rec.end_time.clone());
+        let duration = end_time - start_time;
+        assert_eq!(duration.num_milliseconds(), rec.duration.num_milliseconds());
         match &rec.task_name {
             Some(task_name) => {
                 if tflag {
@@ -114,24 +120,29 @@ fn convert_records(records: Vec<Record>) -> Result<Vec<Project>, Box<dyn Error>>
                 task.project_id = project.project_id.clone();
                 task.task_name = task_name.clone();
                 task.task_date_time = start_time.clone();
-                let value = format!("{}{}", &task.project_id.to_string(), &task.task_name);
+                let value = format!("{}{}{}", &task.project_id.to_string(), &task.task_name, &start_time);
                 task.task_id = make_uuid(&value);
                 // println!("{:?}", &task.task_name);
             }
             None => (),
         }
         let mut task_time = TaskTime::default();
-        task.task_duration += rec.duration.num_milliseconds();
+        task.task_duration += duration.num_milliseconds();
+        project.project_duration += duration.num_milliseconds();
         task_time.start_time = start_time;
         task_time.end_time = end_time;
         task_time.task_id = task.task_id.clone();
         task.task_times.push(task_time);
     }
+    let pd = TimeDelta::milliseconds(project.project_duration);
+    project.total_pay = (pd.num_minutes() as f64/60.0) * project.pay_rate;
     project.tasks.push(task);
     all_projects.push(project);
 
-    println!("+++++++++++++++++++++++++++++++++++++++++++++++");
-    println!("{:#?}", &all_projects);
+    all_projects = combine_like_projects(all_projects);
+
+    // println!("+++++++++++++++++++++++++++++++++++++++++++++++");
+    // println!("{:#?}", &all_projects);
 
     Ok(all_projects)
 }
@@ -139,12 +150,19 @@ fn convert_records(records: Vec<Record>) -> Result<Vec<Project>, Box<dyn Error>>
 ///
 /// Process the loaded and parsed CSV records into the database
 ///
-async fn save_records_to_database(projects: Vec<Project>, opts: &AppOptions) -> Result<(), Box<dyn Error>> {
+async fn save_records_to_database(
+    projects: Vec<Project>,
+    opts: &AppOptions,
+) -> Result<(), Box<dyn Error>> {
+    let mut inserted: u64 = 0;
+
     let config = DbConfig::new(&opts.db_name);
     let mut db = DbiDatabase::new(config).await.unwrap();
     for project in projects {
-        models::add_project(&project, &mut db).await.unwrap();
+        let x = models::add_project(&project, &mut db).await.unwrap();
+        inserted += x;
     }
+    println!("Read and inserted {inserted} projects");
     Ok(())
 }
 

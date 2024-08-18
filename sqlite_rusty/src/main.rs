@@ -5,10 +5,10 @@ async-std = { version = "1.6", features = [ "attributes" ] }
 futures = "0.3.18"
 */
 
+use sqlx::{migrate::MigrateDatabase, sqlite::SqliteQueryResult, Sqlite, SqlitePool};
 use std::result::Result;
-use sqlx::{sqlite::SqliteQueryResult, Sqlite, SqlitePool, migrate::MigrateDatabase};
 
-async fn cretea_schema(db_url:&str) -> Result<SqliteQueryResult, sqlx::Error> {
+async fn create_schema(db_url: &str) -> Result<SqliteQueryResult, sqlx::Error> {
     let pool = SqlitePool::connect(&db_url).await?;
     let qry =
     "PRAGMA foreign_keys = ON ;
@@ -37,19 +37,23 @@ async fn cretea_schema(db_url:&str) -> Result<SqliteQueryResult, sqlx::Error> {
     return result;
 }
 
+const MEMORY_DB: &str = "sqlite::memory:";
 
 #[async_std::main]
-async fn main(){
+async fn main() {
     let db_url = String::from("sqlite://sqlite.db");
-    if !Sqlite::database_exists(&db_url).await.unwrap_or(false) {
-        Sqlite::create_database(&db_url).await.unwrap();
-        match cretea_schema(&db_url).await {
-            Ok(_) => println!("Database created Sucessfully"),
-            Err(e) => panic!("{}",e),
+
+    if !db_url.eq(MEMORY_DB) {
+        if !Sqlite::database_exists(&db_url).await.unwrap_or(false) {
+            Sqlite::create_database(&db_url).await.unwrap();
+            match create_schema(&db_url).await {
+                Ok(_) => println!("Database created Sucessfully"),
+                Err(e) => panic!("{}", e),
+            }
         }
     }
     let instances = SqlitePool::connect(&db_url).await.unwrap();
-    let qry ="INSERT INTO settings (description) VALUES($1)";
+    let qry = "INSERT INTO settings (description) VALUES($1)";
     let result = sqlx::query(&qry).bind("testing").execute(&instances).await;
 
     instances.close().await;
