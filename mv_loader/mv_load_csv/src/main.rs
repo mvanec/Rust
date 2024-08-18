@@ -98,6 +98,8 @@ fn convert_records(records: Vec<Record>) -> Result<Vec<Project>, Box<dyn Error>>
                 let value = format!("{}{}", &project.project_name, &dt);
                 project.project_id = make_uuid(&value);
 
+                // This will be a date in the database, but is date/time here so it can
+                // sort nicely in a Vec::sort_by()
                 let dt_tm = NaiveDateTime::new(rec.date.unwrap().into(), rec.start_time);
                 project.project_date = dt_tm;
                 // println!("{:?}", &project.project_name);
@@ -120,7 +122,8 @@ fn convert_records(records: Vec<Record>) -> Result<Vec<Project>, Box<dyn Error>>
                 task.project_id = project.project_id.clone();
                 task.task_name = task_name.clone();
                 task.task_date_time = start_time.clone();
-                let value = format!("{}{}{}", &task.project_id.to_string(), &task.task_name, &start_time);
+                let dt = task.task_date_time.format("%H:%M:%S").to_string();
+                let value = format!("{}{}{}", &task.project_id.to_string(), &task.task_name, dt);
                 task.task_id = make_uuid(&value);
                 // println!("{:?}", &task.task_name);
             }
