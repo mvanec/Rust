@@ -14,10 +14,10 @@ pub async fn create_test_pool() -> Result<PgPool, sqlx::Error> {
 // #[ctor]
 pub fn test_setup() {
     dotenv::from_filename(".env.test").ok();
-    std::env::set_var(
+    unsafe { std::env::set_var(
         "RUST_LOG",
         env::var("RUST_LOG").unwrap_or(String::from("info")),
-    );
+    ) };
     env_logger::init();
 
     let rt = tokio::runtime::Builder::new_multi_thread()

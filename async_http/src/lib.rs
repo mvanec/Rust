@@ -1,3 +1,5 @@
+mod webcrawl;
+
 use std::future::Future;
 use std::io;
 use std::pin::Pin;

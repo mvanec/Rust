@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use async_trait::async_trait;
 use sqlx::{postgres::PgPoolOptions, Database, Error, MySql, Pool, Postgres, Sqlite};
 use std::error::Error as StdError;

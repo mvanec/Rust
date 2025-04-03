@@ -1,22 +1,22 @@
 [package]
 name = "projects"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-sqlx = { version = "0.7.4", features = [ "postgres", "sqlite", "mysql", "uuid", "chrono", "runtime-tokio-native-tls" ] }
-uuid = { version = "1.8.0", features = ["serde", "v4"] }
-tokio = { version = "1.38.0", features = ["full"] }
-csv = "1.3.0"
-async-std = "1.12.0"
-chrono = "0.4.38"
-async-trait = "0.1.80"
+sqlx = { version = "0.8.3", features = [ "postgres", "sqlite", "mysql", "uuid", "chrono", "runtime-tokio-native-tls" ] }
+uuid = { version = "1.16.0", features = ["serde", "v4"] }
+tokio = { version = "1.44.1", features = ["full"] }
+csv = "1.3.1"
+async-std = "1.13.1"
+chrono = "0.4.40"
+async-trait = "0.1.88"
 dotenv = "0.15.0"
-rust_decimal = "1.35.0"
+rust_decimal = "1.37.1"
 
 [dev-dependencies]
-sqlx = { version = "0.7.4", features = [ "postgres", "uuid", "chrono", "rust_decimal", "runtime-tokio-native-tls" ] }
+sqlx = { version = "0.8.3", features = [ "postgres", "uuid", "chrono", "rust_decimal", "runtime-tokio-native-tls" ] }
 tokio = { version = "1.38.0", features = ["full"] }
-ctor = "0.2.8"
-log = "0.4.21"
-env_logger = "0.11.3"
+ctor = "0.4.1"
+log = "0.4.27"
+env_logger = "0.11.8"

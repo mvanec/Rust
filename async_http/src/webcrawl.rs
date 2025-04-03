@@ -1,3 +1,4 @@
+#![allow(unused)]
 use reqwest::Error;
 use tokio::sync::mpsc;
 
